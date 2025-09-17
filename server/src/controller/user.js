@@ -172,7 +172,7 @@ export const verifyOtp = tryCatch(async(req,res,next)=>{
         throw new Error('OTP has expired or is invalid');
     }
    const storedOtp = JSON.parse(storedOtpString);
-   if(storedOtp !==otp){
+   if(storedOtp !== otp){
     throw new Error('Invalid OTP');
    }
 
@@ -188,3 +188,11 @@ export const verifyOtp = tryCatch(async(req,res,next)=>{
     });
 })
 
+export const myProfile = tryCatch(async(req,res,next)=>{
+    const user = req.user;
+
+    res.status(200).json({
+        success: true,
+        user: user
+    });
+});
