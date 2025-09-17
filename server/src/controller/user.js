@@ -8,7 +8,7 @@ import { User } from "../model/user.js";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import sendMail from "../config/sendMail.js";
-import { getVerifyEmailHtml } from '../config/templete.js';
+import { getOtpHtml, getVerifyEmailHtml } from '../config/templete.js';
 import { success } from "zod";
 
 export const registerUser = tryCatch(async(req,res,next)=>{
@@ -140,9 +140,21 @@ export const loginUser = tryCatch(async(req,res,next)=>{
 
     const otpKey = `otp:${email}`;
 
-    await redisClient.set(otpKey, JSON.stringify(otp))
+    await redisClient.set(otpKey, JSON.stringify(otp),{EX:300});
+
+    const subject = 'otp for verification';
+    const html = getOtpHtml({email,otp});
+
+    await sendMail({email,subject,html});
+
+    await redisClient.set(rateLimit, "true", {EX:60})
+
+    res.status(200).json({
+        message:'OTP has been sent to your email. It will expire in 5 minutes.',
+    })
 
 })
+
 
 
 
