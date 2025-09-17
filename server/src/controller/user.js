@@ -10,6 +10,7 @@ import crypto from "crypto";
 import sendMail from "../config/sendMail.js";
 import { getOtpHtml, getVerifyEmailHtml } from '../config/templete.js';
 import { success } from "zod";
+import { generateToken } from "../config/generateToken.js";
 
 export const registerUser = tryCatch(async(req,res,next)=>{
     const sanitazeBody = sanitize(req.body);
@@ -157,12 +158,33 @@ export const loginUser = tryCatch(async(req,res,next)=>{
 
 
 
+//verify OTP 
+export const verifyOtp = tryCatch(async(req,res,next)=>{
+    const {email, otp} = req.body;
+    if(!email || !otp){
+        throw new Error('Email and OTP are required');
+    }
 
+    const otpKey = `otp:${email}`;
 
+    const storedOtpString = await redisClient.get(otpKey);
+    if(!storedOtpString){
+        throw new Error('OTP has expired or is invalid');
+    }
+   const storedOtp = JSON.parse(storedOtpString);
+   if(storedOtp !==otp){
+    throw new Error('Invalid OTP');
+   }
 
+   await redisClient.del(otpKey);
 
+   const user = await User.findOne({email});
 
+   const tokenData = await generateToken(user._id,res);
+    res.status(200).json({
+        success:true,
+        message:`welcome back, ${user.name}`,
+        ...tokenData
+    });
+})
 
-
-
-// Get User Profile
