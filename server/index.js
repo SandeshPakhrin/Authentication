@@ -3,6 +3,7 @@ import connectDB from './src/connectDB/connectDB.js';
 import userRouter from './src/router/user.js';
 import { createClient } from 'redis';
 import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
 
 // Load environment variables at the very beginning
 dotenv.config()
@@ -13,7 +14,10 @@ console.log('SMTP_USER:', process.env.SMTP_USER ? 'Set' : 'Not set');
 console.log('SMTP_PASSWORD:', process.env.SMTP_PASSWORD ? 'Set' : 'Not set');
 
 const app =  express();
+
+
 app.use(express.json())
+app.use(cookieParser())
 
 const redisUrl = process.env.REDIS_URL;
 if(!redisUrl){
