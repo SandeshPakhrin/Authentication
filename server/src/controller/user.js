@@ -1,7 +1,7 @@
 // Register
 
 import { redisClient } from "../../index.js";
-import { registerSchema } from "../config/zod.js";
+import { loginSchema, registerSchema } from "../config/zod.js";
 import tryCatch from "../middlewares/tryCatch.js";
 import sanitize from "mongo-sanitize";
 import { User } from "../model/user.js";
@@ -9,6 +9,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import sendMail from "../config/sendMail.js";
 import { getVerifyEmailHtml } from '../config/templete.js';
+import { success } from "zod";
 
 export const registerUser = tryCatch(async(req,res,next)=>{
     const sanitazeBody = sanitize(req.body);
@@ -63,12 +64,85 @@ export const registerUser = tryCatch(async(req,res,next)=>{
     })
 })
 
+export const verifyUser = tryCatch(async(req,res,next)=>{
+    const {token } = req.params;
 
+    if(!token){
+        throw new Error ('Verification token is required');
+    }
 
+    const verifyKey = `verify-email:${token}`;
 
+    const userDataJSON = await redisClient.get(verifyKey);
+    if(!userDataJSON){
+        throw new Error('Invalid or expired verification token');
+    }
+
+    await redisClient.del(verifyKey);
+
+    const userData = JSON.parse(userDataJSON);
+
+    const existingUser = await User.findOne({email:userData.email});
+    if(existingUser){
+        throw new Error('User already exists');
+    }
+    
+    // Fix: Remove 'new' keyword - User.create() is a static method
+    const newUser = await User.create({
+        name:userData.name,
+        email:userData.email,
+        password:userData.password,
+    })
+    
+    res.status(201).json({
+        success:true,
+        message:"Email verified successfully! Your account has been created.",
+        user:{
+            id: newUser._id,
+            name: newUser.name,
+            email: newUser.email
+        }
+    })
+})
 
 
 // Login
+export const loginUser = tryCatch(async(req,res,next)=>{
+     const sanitazeBody = sanitize(req.body);
+
+    const validation = loginSchema.safeParse(sanitazeBody);
+    if(!validation.success){
+        return res.status(400).json({
+            message:"Validation Error",
+        })
+    }
+
+
+
+    const {email,password}= validation.data;
+
+    const rateLimit = `login-rate-limit:${req.ip}:${email} `
+
+    if(await redisClient.get(rateLimit)){
+        throw new Error('Too many requests. Please try again later.');
+    }
+
+    const user = await User.findOne({email})
+    if(!user){
+        throw new Error('Invalid credentials');
+    }
+    const comparePassword = await bcrypt.compare(password,user.password);
+    if(!comparePassword){
+        throw new Error('Invalid credentials');
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString()
+
+    const otpKey = `otp:${email}`;
+
+    await redisClient.set(otpKey, JSON.stringify(otp))
+
+})
 
 
 
