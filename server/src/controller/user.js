@@ -10,7 +10,7 @@ import crypto from "crypto";
 import sendMail from "../config/sendMail.js";
 import { getOtpHtml, getVerifyEmailHtml } from '../config/templete.js';
 import { success } from "zod";
-import { generateToken } from "../config/generateToken.js";
+import { generateAccessToken, generateToken, verifyRefreshToken } from "../config/generateToken.js";
 
 export const registerUser = tryCatch(async(req,res,next)=>{
     const sanitazeBody = sanitize(req.body);
@@ -196,3 +196,25 @@ export const myProfile = tryCatch(async(req,res,next)=>{
         user: user
     });
 });
+
+export const refreshToken = tryCatch(async(req,res,next)=>{
+    const refreshToken = req.cookies.refreshToken;
+
+    if(!refreshToken){
+        throw new Error('Refresh token not found, please login again');
+    }
+
+    const decode = await verifyRefreshToken(refreshToken);
+    if(!decode){
+        throw new Error('Invalid refresh token, please login again');
+    }
+
+    // Fix: Add await and get the new access token
+    const newAccessToken = await generateAccessToken(decode.id, res);
+
+    res.status(200).json({
+        success: true,
+        message: 'Token refreshed successfully',
+        accessToken: newAccessToken
+    });
+})
